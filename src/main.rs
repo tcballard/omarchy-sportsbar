@@ -38,7 +38,9 @@ fn normalize(sport: &str, v: &Value) -> Result<Vec<Value>, &'static str> {
     let mut out = Vec::new();
     match sport {
         "nfl" | "football" | "rugby" => {
-            for e in array(&v["events"])? {
+            // CDN responses wrap the scoreboard in content.sbData. A missing
+            // wrapper is an error, never an empty successful refresh.
+            for e in array(&v["content"]["sbData"]["events"])? {
                 for c in array(&e["competitions"])? {
                     let teams: Vec<Value> = array(&c["competitors"])?
                         .iter()
@@ -100,7 +102,7 @@ fn response_error(
 ) -> Option<FeedError> {
     let (state, message) = match status {
         200 => return None,
-        401 | 403 => ("unauthenticated", "Provider denied access"),
+        401 | 403 => ("access-denied", "Provider denied access"),
         429 => ("rate-limited", "Provider quota reached; polling backed off"),
         _ => ("failed", "Provider returned an HTTP error"),
     };
@@ -110,27 +112,9 @@ fn response_error(
         header.and_then(|v| retry_after(v, observed)),
     ))
 }
-fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), FeedError> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .connect_timeout(Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            if attempt.previous().len() < 3
-                && cricinfo::allowed_url(attempt.url())
-                && attempt.previous().iter().all(cricinfo::allowed_url)
-            {
-                attempt.follow()
-            } else {
-                attempt.stop()
-            }
-        }))
-        .user_agent("SportsBar/0.1.0")
-        .build()
-        .map_err(|_| ("failed", "Could not create HTTPS client", None))?;
-    let request = match sport {
-        "nfl" => {
-            client.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard")
-        }
+fn feed_url(sport: &str, league: &str) -> Result<String, FeedError> {
+    let url = match sport {
+        "nfl" => "https://cdn.espn.com/core/nfl/scoreboard?xhr=1&limit=50".to_owned(),
         "football" => {
             if ![
                 "eng.1",
@@ -151,21 +135,37 @@ fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), FeedError> {
             {
                 return Err(("unsupported", "Football competition is not supported", None));
             }
-            client.get(format!(
-                "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
-            ))
+            format!("https://cdn.espn.com/core/soccer/scoreboard?xhr=1&league={league}")
         }
         "rugby" => {
             if !["267979", "180659"].contains(&league) {
                 return Err(("unsupported", "Rugby competition is not supported", None));
             }
-            client.get(format!(
-                "https://site.api.espn.com/apis/site/v2/sports/rugby/{league}/scoreboard"
-            ))
+            format!("https://cdn.espn.com/core/rugby/scoreboard?xhr=1&league={league}")
         }
-        "cricket" => client.get("https://static.cricinfo.com/rss/livescores.xml"),
+        "cricket" => "https://static.cricinfo.com/rss/livescores.xml".to_owned(),
         _ => return Err(("unsupported", "Unsupported sport", None)),
     };
+    Ok(url)
+}
+fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), FeedError> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(12))
+        .connect_timeout(Duration::from_secs(5))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() < 3
+                && cricinfo::allowed_url(attempt.url())
+                && attempt.previous().iter().all(cricinfo::allowed_url)
+            {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
+        .user_agent("SportsBar/0.1.0")
+        .build()
+        .map_err(|_| ("failed", "Could not create HTTPS client", None))?;
+    let request = client.get(feed_url(sport, league)?);
     let response = request
         .send()
         .map_err(|_| ("offline", "Feed unreachable or timed out", None))?;
@@ -226,6 +226,90 @@ fn main() {
 mod tests {
     use super::*;
     #[test]
+    fn cdn_routes_and_league_allowlist() {
+        assert_eq!(
+            feed_url("nfl", "").unwrap(),
+            "https://cdn.espn.com/core/nfl/scoreboard?xhr=1&limit=50"
+        );
+        for league in [
+            "eng.1",
+            "eng.2",
+            "eng.3",
+            "eng.4",
+            "sco.1",
+            "uefa.champions",
+            "uefa.europa",
+            "esp.1",
+            "ger.1",
+            "ita.1",
+            "fra.1",
+            "usa.1",
+            "fifa.world",
+        ] {
+            assert_eq!(
+                feed_url("football", league).unwrap(),
+                format!("https://cdn.espn.com/core/soccer/scoreboard?xhr=1&league={league}")
+            );
+        }
+        for league in ["267979", "180659"] {
+            assert_eq!(
+                feed_url("rugby", league).unwrap(),
+                format!("https://cdn.espn.com/core/rugby/scoreboard?xhr=1&league={league}")
+            );
+        }
+        for sport in ["football", "rugby"] {
+            for invalid in ["", "unknown", "eng.1&league=other", "../nfl"] {
+                assert_eq!(feed_url(sport, invalid).unwrap_err().0, "unsupported");
+            }
+        }
+        assert_eq!(
+            feed_url("cricket", "").unwrap(),
+            "https://static.cricinfo.com/rss/livescores.xml"
+        );
+        assert!(feed_url("tennis", "").is_err());
+    }
+    #[test]
+    fn cdn_empty_and_malformed_responses() {
+        for sport in ["nfl", "football", "rugby"] {
+            assert!(
+                normalize(sport, &json!({"content":{"sbData":{"events":[]}}}))
+                    .unwrap()
+                    .is_empty()
+            );
+            for malformed in [
+                json!({}),
+                json!({"events":[]}),
+                json!({"content":{"sbData":null}}),
+                json!({"content":{"sbData":{"events":{}}}}),
+            ] {
+                assert!(normalize(sport, &malformed).is_err());
+            }
+        }
+    }
+    #[test]
+    fn cdn_football_score_updates_preserve_identity() {
+        let mut v = json!({"content":{"sbData":{"events":[{"id":"42","name":"A v B","date":"2026-09-14T19:00Z","status":{"type":{"state":"pre"}},"competitions":[{"status":{"type":{"state":"in","shortDetail":"27'"}},"competitors":[{"team":{"id":"a","displayName":"A"},"score":"0"},{"team":{"id":"b","displayName":"B"}}]}]}]}}});
+        let before = normalize("football", &v).unwrap();
+        assert_eq!(before[0]["id"], "football:42");
+        assert_eq!(before[0]["state"], "live");
+        assert_eq!(before[0]["detail"], "27'");
+        assert!(before[0]["teams"][1]["score"].is_null());
+        v["content"]["sbData"]["events"][0]["competitions"][0]["competitors"][0]["score"] =
+            json!("1");
+        let after = normalize("football", &v).unwrap();
+        assert_eq!(after[0]["id"], before[0]["id"]);
+        assert_eq!(after[0]["teams"][0]["score"], 1);
+    }
+    #[test]
+    fn denied_access_does_not_request_authentication() {
+        for status in [401, 403] {
+            assert_eq!(
+                response_error(status, Some("120"), now()),
+                Some(("access-denied", "Provider denied access", Some(120)))
+            );
+        }
+    }
+    #[test]
     fn retry_after_headers() {
         let observed = chrono::DateTime::parse_from_rfc3339("2026-09-14T10:00:00.500Z")
             .unwrap()
@@ -254,7 +338,7 @@ mod tests {
     #[test]
     fn espn_fixture() {
         let v = json!({"events":[{"id":"1","name":"A v B","status":{"type":{"state":"in"}},"competitions":[{"competitors":[{"team":{"id":"a","displayName":"A"},"score":"7"},{"team":{"id":"b","displayName":"B"},"score":"0"}]}]}]});
-        let m = normalize("nfl", &v).unwrap();
+        let m = normalize("nfl", &json!({"content":{"sbData":v}})).unwrap();
         assert_eq!(m[0]["state"], "live");
         assert_eq!(m[0]["teams"][0]["score"], 7);
         assert!(normalize("football", &json!({})).is_err());
@@ -262,7 +346,7 @@ mod tests {
     #[test]
     fn rugby_fixture() {
         let v = json!({"events":[{"id":"602507","name":"Wales vs France","competitions":[{"status":{"type":{"state":"post"}},"competitors":[{"team":{"id":"4","displayName":"Wales"},"score":"12"},{"team":{"id":"9","displayName":"France"},"score":"54"}]}]}]});
-        let m = normalize("rugby", &v).unwrap();
+        let m = normalize("rugby", &json!({"content":{"sbData":v}})).unwrap();
         assert_eq!(m[0]["state"], "finished");
         assert_eq!(m[0]["teams"][1]["score"], 54);
         assert!(normalize("rugby", &json!({"response":[]})).is_err());
