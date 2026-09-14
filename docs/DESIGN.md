@@ -8,7 +8,7 @@
 - Focus: an inline focused event ID and compact fixture label, independent of polling/alert configuration. No automatic switch away from a missing focused match. Private popout targets 440 × 520 logical pixels, clamped to the screen.
 - Durable state: inline widget settings in Omarchy's shell.json, updated via the own-entry facade. At most 40 favourite team names, scoped by sport. No deep merge or separate settings file.
 - Dependencies: Qt Quick/Quickshell and Omarchy Ui/Commons; purpose-built Rust `sportsbar-feed`; coreutils timeout; libnotify. No elevated actions or dynamically downloaded executables. The helper is built/installed explicitly.
-- Network: fixed HTTPS endpoints at site.api.espn.com and static.cricinfo.com/rss/livescores.xml. Only exact HTTPS live-scores RSS paths on allowlisted Cricinfo hosts may redirect (at most two hops), 5-second connect and 12-second request timeout; 2 MiB per response; one cricket RSS request per refresh; 55-second process watchdog. Provider response URLs/errors and keys are not passed to QML.
+- Network: fixed HTTPS endpoints at cdn.espn.com and static.cricinfo.com/rss/livescores.xml. Only exact HTTPS live-scores RSS paths on allowlisted Cricinfo hosts may redirect (at most two hops), 5-second connect and 12-second request timeout; 2 MiB per response; one cricket RSS request per refresh; 55-second process watchdog. Provider response URLs/errors and keys are not passed to QML.
 - Credentials: none required or read by the helper.
 - IPC: `io.github.tcballard.sportsbar refresh` respects polling deadlines; `status` returns a bounded summary. The shell's own summon/hide routes handle the bar popout.
 - Failure states: missing helper, offline, HTTP/authentication/quota failures, unsupported competition/RSS score formats and malformed data. Last-good scores survive with stale labels. First successful snapshot after a failure is silent. No fake live-data fallback.
@@ -18,7 +18,7 @@
 
 - Cricket RSS uses score-slot continuity and batting markers for conservative wicket detection, not authoritative innings identity. Use a 30-second request-start polling interval, with no overlapping requests and exponential error backoff. RSS TTL does not override this product default. No inferred wickets from bare run totals; missing status is unknown, not scheduled/final.
 
-All four sports default to 30 seconds, measured from request start. The singleton serializes requests; slow requests can defer another sport. Rugby uses ESPN with one allowlisted competition (English Premiership or Six Nations); old paid-feed options are ignored.
+All four sports default to 30 seconds, measured from request start. The singleton serializes requests; slow requests can defer another sport. NFL, football and rugby read the CDN `content.sbData.events` wrapper, rejecting absent or malformed scoreboards. Match IDs remain unchanged. CDN caches may make successful polls repeat older scores. Rugby uses ESPN with one allowlisted competition (English Premiership or Six Nations); old paid-feed options are ignored.
 
 Audit corrections: choose the oldest eligible deadline so slow successful requests
 cannot starve cricket. Preserve server Retry-After cooldowns across configuration
