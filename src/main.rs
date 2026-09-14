@@ -36,7 +36,7 @@ fn team(id: &Value, name: &Value, score: &Value) -> Value {
 fn normalize(sport: &str, v: &Value) -> Result<Vec<Value>, &'static str> {
     let mut out = Vec::new();
     match sport {
-        "nfl" | "football" => {
+        "nfl" | "football" | "rugby" => {
             for e in array(&v["events"])? {
                 for c in array(&e["competitions"])? {
                     let teams: Vec<Value> = array(&c["competitors"])?
@@ -59,35 +59,6 @@ fn normalize(sport: &str, v: &Value) -> Result<Vec<Value>, &'static str> {
                     };
                     out.push(json!({"id":format!("{}:{}",sport,text(&e["id"])),"sport":sport,"name":text(&e["name"]),"state":state,"detail":text(&status["type"]["shortDetail"]),"start":text(&e["date"]),"teams":teams,"innings":[]}));
                 }
-            }
-        }
-        "rugby" => {
-            if v.get("errors").is_some_and(|e| {
-                e.as_object().is_some_and(|o| !o.is_empty())
-                    || e.as_array().is_some_and(|a| !a.is_empty())
-            }) {
-                return Err("Provider rejected request; check key, plan and quota");
-            }
-            for e in array(&v["response"])? {
-                let state = match e["status"]["short"].as_str() {
-                    Some("1H" | "2H" | "HT" | "ET" | "BT" | "P" | "LIVE") => "live",
-                    Some("FT" | "AET") => "finished",
-                    Some("NS") => "scheduled",
-                    _ => "unknown",
-                };
-                let teams = vec![
-                    team(
-                        &e["teams"]["home"]["id"],
-                        &e["teams"]["home"]["name"],
-                        &e["scores"]["home"],
-                    ),
-                    team(
-                        &e["teams"]["away"]["id"],
-                        &e["teams"]["away"]["name"],
-                        &e["scores"]["away"],
-                    ),
-                ];
-                out.push(json!({"id":format!("rugby:{}",text(&e["id"])),"sport":sport,"name":format!("{} v {}",text(&teams[0]["name"]),text(&teams[1]["name"])),"state":state,"detail":text(&e["status"]["long"]),"start":text(&e["date"]),"teams":teams,"innings":[]}));
             }
         }
         _ => return Err("Unsupported sport"),
@@ -125,13 +96,6 @@ fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), (&'static str, 
         .user_agent("SportsBar/0.1.0")
         .build()
         .map_err(|_| ("failed", "Could not create HTTPS client"))?;
-    let key = |name| {
-        env::var(name).ok().filter(|v| !v.trim().is_empty()).ok_or((
-            "unauthenticated",
-            "API key required; see provider setup in README",
-        ))
-    };
-    let date = now().format("%Y-%m-%d").to_string();
     let request = match sport {
         "nfl" => {
             client.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard")
@@ -160,10 +124,14 @@ fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), (&'static str, 
                 "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
             ))
         }
-        "rugby" => client
-            .get("https://v1.rugby.api-sports.io/games")
-            .query(&[("date", date.clone())])
-            .header("x-apisports-key", key("SPORTSBAR_RUGBY_KEY")?),
+        "rugby" => {
+            if !["267979", "180659"].contains(&league) {
+                return Err(("unsupported", "Rugby competition is not supported"));
+            }
+            client.get(format!(
+                "https://site.api.espn.com/apis/site/v2/sports/rugby/{league}/scoreboard"
+            ))
+        }
         "cricket" => client.get("https://static.cricinfo.com/rss/livescores.xml"),
         _ => return Err(("unsupported", "Unsupported sport")),
     };
@@ -171,7 +139,7 @@ fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), (&'static str, 
         .send()
         .map_err(|_| ("offline", "Feed unreachable or timed out"))?;
     match response.status().as_u16() {
-        401 | 403 => return Err(("unauthenticated", "Provider rejected API key or plan")),
+        401 | 403 => return Err(("unauthenticated", "Provider denied access")),
         429 => return Err(("rate-limited", "Provider quota reached; polling backed off")),
         200 => (),
         _ => return Err(("failed", "Provider returned an HTTP error")),
@@ -194,7 +162,7 @@ fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), (&'static str, 
     let v: Value =
         serde_json::from_slice(&bytes).map_err(|_| ("failed", "Feed returned invalid JSON"))?;
     normalize(sport, &v)
-        .map(|matches| (matches, 60))
+        .map(|matches| (matches, 30))
         .map_err(|e| ("failed", e))
 }
 
@@ -205,7 +173,10 @@ fn main() {
         return;
     }
     let sport = args.get(1).map(String::as_str).unwrap_or("");
-    let league = args.get(2).map(String::as_str).unwrap_or("eng.1");
+    let league = args
+        .get(2)
+        .map(String::as_str)
+        .unwrap_or(if sport == "rugby" { "267979" } else { "eng.1" });
     let output = match fetch(sport, league) {
         Ok((matches, poll_interval_sec)) => {
             json!({"sport":sport,"state":if matches.is_empty(){"empty"}else{"ready"},"matches":matches,"updated":now().timestamp_millis(),"pollIntervalSec":poll_interval_sec})
@@ -229,15 +200,11 @@ mod tests {
     }
     #[test]
     fn rugby_fixture() {
-        let v = json!({"errors":[],"response":[{"id":1,"status":{"short":"HT","long":"Halftime"},"teams":{"home":{"id":1,"name":"A"},"away":{"id":2,"name":"B"}},"scores":{"home":14,"away":null}}]});
+        let v = json!({"events":[{"id":"602507","name":"Wales vs France","competitions":[{"status":{"type":{"state":"post"}},"competitors":[{"team":{"id":"4","displayName":"Wales"},"score":"12"},{"team":{"id":"9","displayName":"France"},"score":"54"}]}]}]});
         let m = normalize("rugby", &v).unwrap();
-        assert_eq!(m[0]["state"], "live");
-        assert!(m[0]["teams"][1]["score"].is_null());
-        assert!(normalize(
-            "rugby",
-            &json!({"errors":{"token":"invalid"},"response":[]})
-        )
-        .is_err());
+        assert_eq!(m[0]["state"], "finished");
+        assert_eq!(m[0]["teams"][1]["score"], 54);
+        assert!(normalize("rugby", &json!({"response":[]})).is_err());
     }
     #[test]
     fn input_safety() {

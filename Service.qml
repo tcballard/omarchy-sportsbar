@@ -50,9 +50,7 @@ Item {
         Qt.callLater(tick)
     }
     function interval(sport) {
-        if (sport === "cricket") return 30000
-        if (sport === "rugby") return options.fastPaidFeeds === true ? 60000 : 1200000
-        return 60000
+        return 30000
     }
     function sports() {
         if (demo) return ["demo"]
@@ -70,7 +68,7 @@ Item {
             buffer = ""
             overflow = false
             deadlines[sport] = now + interval(sport)
-            poll.command = ["/usr/bin/timeout", "55", "sportsbar-feed", demo ? "--demo" : sport, String(options.footballLeague || "eng.1")]
+            poll.command = ["/usr/bin/timeout", "55", "sportsbar-feed", demo ? "--demo" : sport, String(sport === "rugby" ? (options.rugbyLeague || "267979") : (options.footballLeague || "eng.1"))]
             busy = true
             poll.running = true
             return

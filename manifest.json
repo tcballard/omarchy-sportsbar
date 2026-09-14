@@ -24,8 +24,8 @@
       "teams": "",
       "footballLeague": "eng.1",
       "notifications": true,
-      "fastPaidFeeds": false,
-      "demo": false
+      "demo": false,
+      "rugbyLeague": "267979"
     },
     "schema": [
       {
@@ -39,12 +39,6 @@
         "type": "boolean",
         "label": "Desktop alerts",
         "defaultValue": true
-      },
-      {
-        "key": "fastPaidFeeds",
-        "type": "boolean",
-        "label": "60-second rugby polling (needs quota)",
-        "defaultValue": false
       },
       {
         "key": "demo",

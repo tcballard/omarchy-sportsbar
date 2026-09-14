@@ -7,7 +7,7 @@
 
 Follow your teams from the Omarchy bar. See scores and get desktop notifications when a score changes or a wicket falls, without keeping a sports website open.
 
-**First development preview.** Portable tests pass; live Omarchy integration and authenticated rugby feeds are not yet verified. This is not a published marketplace release.
+**First development preview.** Portable tests pass; live Omarchy integration and live rugby update timing are not yet verified. This is not a published marketplace release.
 
 ![Portable Qt preview with fictional scores and simulated host controls](docs/portable-preview.png)
 
@@ -27,24 +27,24 @@ Score changes are described as **score updates**, not inferred touchdowns, tries
 
 | Sport | Adapter | Setup | Polling |
 | --- | --- | --- | --- |
-| NFL | ESPN public website scoreboard | No key | 60 seconds |
-| Football | ESPN public website scoreboard | No key; choose one competition | 60 seconds |
-| Rugby | API-Sports Rugby games for today's UTC date | `SPORTSBAR_RUGBY_KEY` | 20 minutes, or 60 seconds in fast mode |
+| NFL | ESPN public website scoreboard | No key | 30 seconds |
+| Football | ESPN public website scoreboard | No key; choose one competition | 30 seconds |
+| Rugby | ESPN public website scoreboard | No key; English Premiership or Six Nations | 30 seconds |
 | Cricket | ESPNcricinfo public live-scores RSS | No key or account | 30 seconds |
 
-Alerts arrive **after the provider updates and the next successful poll**. These are not push feeds or guaranteed instant alerts. Cricket defaults to 30-second polling, measured from request start; one request refreshes all cricket matches in the feed. This deliberately uses the product default rather than the RSS TTL hint. The 14 September live-feed experiment observed two score changes 57–60 seconds earlier than a simulated two-minute schedule; it did not establish wicket-alert or ground-to-desktop latency. Rugby remains on an optional keyed adapter: standard mode is 20 minutes, or 60 seconds with sufficient quota. HTTP errors back off; manual refresh respects the current deadline.
+Alerts arrive **after the provider updates and the next successful poll**. These are not push feeds or guaranteed instant alerts. All sports default to 30-second polling, measured from request start; one request refreshes all cricket matches in the feed. This deliberately uses the product default rather than the RSS TTL hint. The 14 September live-feed experiment observed two score changes 57–60 seconds earlier than a simulated two-minute schedule; it did not establish wicket-alert or ground-to-desktop latency. HTTP errors back off; manual refresh respects the current deadline.
 
 The ESPNcricinfo public RSS response was retrieved on 14 September 2026 and is covered by a recorded-response test. It supplies team names, scores, wickets when present and a `*` batting-side marker. Overs, authoritative innings IDs, upcoming-match state and result text are not guaranteed. Missing fields stay unknown; a bare runs total is not assumed to mean all out. Cricket wicket alerts require consecutive live snapshots of the same batting score slot with no run reset. These are best-effort score-change detections: compressed innings, omitted markers and missing final-result updates may suppress notifications. The feed's schema and update latency are not contractual. Unsupported title formats report a feed error and retain stale scores rather than inventing data.
 
-NFL and Premier League endpoints were also inspected publicly. Rugby still requires your own API-Sports account; no rugby key was available for a real response test. The product target is no-account public feeds by default; a no-key rugby replacement remains outstanding. No BBC scraping is used.
+NFL and Premier League endpoints were also inspected publicly. ESPN rugby endpoints returned Six Nations results and English Premiership fixtures without credentials. Live rugby update speed is not yet verified. No BBC scraping is used.
 
-The initial scope is current scoreboards, not every competition, historic results, standings or a complete searchable team directory. Football fetches one selected competition at a time (default Premier League); teams playing outside it will not appear. Rugby coverage depends on the API-Sports plan. Cricket follows exact provider team names. Additional provider adapters can reuse the normalized match contract and alert engine.
+The initial scope is current scoreboards, not every competition, historic results, standings or a complete searchable team directory. Football fetches one selected competition at a time (default Premier League); teams playing outside it will not appear. Rugby fetches one selected competition: English Premiership by default, or Six Nations, chosen in Alerts & feeds. Teams outside that competition will not appear. Cricket follows exact provider team names. Additional provider adapters can reuse the normalized match contract and alert engine.
 
 Sources checked 14 September 2026:
 
 - [ESPN NFL scoreboard](https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard)
 - [ESPN Premier League scoreboard](https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard)
-- [API-Sports Rugby documentation](https://api-sports.io/documentation/rugby/v1)
+- [ESPN Premiership scoreboard](https://site.api.espn.com/apis/site/v2/sports/rugby/267979/scoreboard)
 - [ESPNcricinfo public live-scores RSS](https://static.cricinfo.com/rss/livescores.xml)
 
 ## Build and install for testing
@@ -86,11 +86,7 @@ Left click opens the panel; right click mutes/unmutes notifications for the sess
 
 ## Provider setup
 
-**Cricket, NFL and football need no API keys.** The former `SPORTSBAR_CRICKET_KEY` is no longer read and can be removed from your session configuration.
-
-Only the current optional rugby adapter uses a key. Supply `SPORTSBAR_RUGBY_KEY` from [API-Sports](https://api-sports.io/) through your login/session environment so the running shell inherits it. Re-login after changing that environment; exporting it in a terminal does not update an already running shell. Disable the rugby feed in **Alerts & feeds** if you want to use only the no-key providers.
-
-Do not put keys in `shell.json`, the repository, screenshots or issues. Only the Rust helper reads the rugby variable; it never emits it in output. Keys are not entered or displayed in the panel.
+**All four sports need no API keys or accounts.** The former `SPORTSBAR_CRICKET_KEY` and `SPORTSBAR_RUGBY_KEY` variables are no longer read and can be removed from your session configuration. The obsolete `fastPaidFeeds` setting is ignored.
 
 ## Compatibility
 

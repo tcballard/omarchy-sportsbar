@@ -62,7 +62,7 @@ Window {{id:w;visible:true;width:480;height:620;color:"#171c1a"
   svc.configure({{demo:false,teams:"cricket:england"}})
   svc.requestGeneration=old;svc.buffer=JSON.stringify({json.dumps(fixtures)});svc.complete(0)
   assertOk(svc.matches.length===0,"late completion leaked")
-  assertOk(svc.interval("cricket")===30000,"cricket defaults to thirty seconds")
+  ;["nfl","football","rugby","cricket"].forEach(function(sport) {{assertOk(svc.interval(sport)===30000,"all sports default to thirty seconds")}})
   svc.deadlines.cricket=Date.now()+17000
   var cricketDeadline=svc.deadlines.cricket
   svc.requestGeneration=svc.generation;svc.requestSport="cricket";svc.buffer=JSON.stringify({{state:"ready",matches:[{json.dumps(fixtures['matches'][0])}]}});svc.complete(0)
