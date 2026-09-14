@@ -12,6 +12,7 @@ Item {
     property bool busy: false
     property var feeds: ({})
     property var deadlines: ({})
+    property var retryDeadlines: ({})
     property var failures: ({})
     property var history: Model.tracker()
     property var notifications: []
@@ -59,10 +60,13 @@ Item {
     function tick() {
         now = Date.now()
         if (!configured || busy) return
-        var list = sports()
+        // Oldest deadline first prevents slow successful feeds starving cricket.
+        var list = sports().sort(function(a,b) {
+            return Math.max(deadlines[a] || 0,retryDeadlines[a] || 0) - Math.max(deadlines[b] || 0,retryDeadlines[b] || 0)
+        })
         for (var i=0; i<list.length; i++) {
             var sport = list[i]
-            if ((deadlines[sport] || 0) > now) continue
+            if (Math.max(deadlines[sport] || 0,retryDeadlines[sport] || 0) > now) continue
             requestSport = sport
             requestGeneration = generation
             buffer = ""
@@ -90,6 +94,7 @@ Item {
         if (success) {
             result.updated = Date.now()
             failures[requestSport] = 0
+            delete retryDeadlines[requestSport]
             var events = Model.ingest(history,result.matches,selected,Date.now(),interval(requestSport)*2+15000,!demo && !muted && options.notifications !== false)
             events = events.filter(function(e) { return options[e.kind + "Alerts"] !== false })
             recent = events.concat(recent).slice(0,30)
@@ -98,7 +103,9 @@ Item {
         } else {
             Object.keys(history.matches).forEach(function(id) { if(history.matches[id].match.sport===requestSport) delete history.matches[id] })
             failures[requestSport] = Math.min(6,(failures[requestSport] || 0)+1)
-            deadlines[requestSport] = Date.now()+Math.min(3600000,interval(requestSport)*Math.pow(2,failures[requestSport]))
+            var retry = typeof result.retryAfterSec === "number" && isFinite(result.retryAfterSec) && result.retryAfterSec >= 0 ? result.retryAfterSec*1000 : 0
+            if (retry > 0) retryDeadlines[requestSport] = Date.now()+retry
+            deadlines[requestSport] = Date.now()+Math.max(retry,Math.min(3600000,interval(requestSport)*Math.pow(2,failures[requestSport])))
             result.matches = feeds[requestSport] ? feeds[requestSport].matches || [] : []
             result.updated = feeds[requestSport] ? feeds[requestSport].updated || 0 : 0
         }
@@ -117,7 +124,7 @@ Item {
         }).join("\n")
     }
     function dispatch() {
-        if (notify.running || !notifications.length) return
+        if (notify.running || notificationDelay.running || !notifications.length) return
         if (muted || options.notifications === false || demo) {notifications=[];return}
         var queue=notifications.slice()
         var event=queue.shift()
@@ -148,7 +155,7 @@ Item {
     IpcHandler {
         target:"io.github.tcballard.sportsbar"
         function refresh(): void { root.tick() }
-        function status(): string {return JSON.stringify({configured:root.configured,loading:poll.running,followed:root.followed.length,feeds:root.statusLines(),muted:root.muted})}
+        function status(): string {return JSON.stringify({configured:root.configured,demo:root.demo,demoReady:root.demo && !poll.running && !!root.feeds.demo && root.feeds.demo.state === "ready",loading:poll.running,followed:root.followed.length,feeds:root.statusLines(),muted:root.muted})}
     }
     Component.onDestruction: {generation++;poll.running=false;notify.running=false;notifications=[]}
 }

@@ -32,7 +32,7 @@ Score changes are described as **score updates**, not inferred touchdowns, tries
 | Rugby | ESPN public website scoreboard | No key; English Premiership or Six Nations | 30 seconds |
 | Cricket | ESPNcricinfo public live-scores RSS | No key or account | 30 seconds |
 
-Alerts arrive **after the provider updates and the next successful poll**. These are not push feeds or guaranteed instant alerts. All sports default to 30-second polling, measured from request start; one request refreshes all cricket matches in the feed. This deliberately uses the product default rather than the RSS TTL hint. The 14 September live-feed experiment observed two score changes 57–60 seconds earlier than a simulated two-minute schedule; it did not establish wicket-alert or ground-to-desktop latency. HTTP errors back off; manual refresh respects the current deadline.
+Alerts arrive **after the provider updates and the next successful poll**. These are not push feeds or guaranteed instant alerts. All sports default to 30-second polling, measured from request start; one request refreshes all cricket matches in the feed. This deliberately uses the product default rather than the RSS TTL hint. The 14 September live-feed experiment observed two score changes 57–60 seconds earlier than a simulated two-minute schedule; it did not establish wicket-alert or ground-to-desktop latency. Overdue sports are served oldest-first without overlapping requests. Slow requests can extend the effective interval beyond 30 seconds. HTTP errors back off; server Retry-After delays are minimum waits, even when longer than local backoff. Manual refresh and settings changes respect server cooldowns within the running service. Restarting the service resets its in-memory cooldowns.
 
 The ESPNcricinfo public RSS response was retrieved on 14 September 2026 and is covered by a recorded-response test. It supplies team names, scores, wickets when present and a `*` batting-side marker. Overs, authoritative innings IDs, upcoming-match state and result text are not guaranteed. Missing fields stay unknown; a bare runs total is not assumed to mean all out. Cricket wicket alerts require consecutive live snapshots of the same batting score slot with no run reset. These are best-effort score-change detections: compressed innings, omitted markers and missing final-result updates may suppress notifications. The feed's schema and update latency are not contractual. Unsupported title formats report a feed error and retain stale scores rather than inventing data.
 
@@ -56,6 +56,7 @@ Clone the repository and enter its directory:
 ```bash
 git clone https://github.com/tcballard/omarchy-sportsbar.git
 cd omarchy-sportsbar
+git checkout --detach 9da10bea93cb6a01d1d355f73c94f88b06be8182
 ```
 
 Build and install the helper explicitly:
@@ -71,16 +72,16 @@ sportsbar-feed --demo
 sportsbar-feed nfl
 ```
 
-Install the plugin from its repository:
+Install the plugin from the same pinned checkout as the helper (keep that checkout for the local plugin):
 
 ```bash
-omarchy plugin add https://github.com/tcballard/omarchy-sportsbar --yes
+omarchy plugin add "$PWD" --yes
 omarchy plugin enable io.github.tcballard.sportsbar --yes
 ```
 
-The display name is **SportsBar**; the repository is **omarchy-sportsbar**. This first published preview uses plugin ID `io.github.tcballard.sportsbar`, helper `sportsbar-feed` and the `SPORTSBAR_*` environment variables below. If you manually installed the earlier unpublished OmaSports preview, remove `io.github.tcballard.omasports` and its `omasports-feed` helper before enabling this one. Transfer any favourite settings you want to keep.
+The display name is **SportsBar**; the repository is **omarchy-sportsbar**. This development preview uses plugin ID `io.github.tcballard.sportsbar` and helper `sportsbar-feed`. If you manually installed the earlier unpublished OmaSports preview, remove `io.github.tcballard.omasports` and its `omasports-feed` helper before enabling this one. Transfer any favourite settings you want to keep.
 
-Click **Sports → Teams**, select a sport and follow your teams. In **Alerts & feeds**, choose a football competition, alert categories and polling speed. For a safe visual trial, enable **Fictional demo** there first. This does not set your favourites to the fictional teams.
+Click **Sports → Teams**, select a sport and follow your teams. In **Alerts & feeds**, choose football/rugby competitions and alert categories. For a safe visual trial, enable **Fictional demo** there first. This does not set your favourites to the fictional teams.
 
 Left click opens the panel; right click mutes/unmutes notifications for the session. Tab/Shift+Tab move between controls; Enter/Space activate buttons; Escape closes the panel.
 
@@ -91,6 +92,8 @@ Left click opens the panel; right click mutes/unmutes notifications for the sess
 ## Compatibility
 
 Targets the installed Omarchy Quattro shell's hosted `service` + `bar-widget` contract. Installed system versions are reported by `omarchy-version`; ISO and Quickshell engine versions are separate. **No installed Omarchy version has been tested yet**, so no compatibility-range badge is claimed. An ordinary third-party replacement bar can lack access to the widget's service; use Omarchy's built-in bar for the initial test.
+
+See [demo and desktop acceptance](docs/DESKTOP-TEST.md) for capture and live verification steps.
 
 ## Development and evidence
 
@@ -108,6 +111,6 @@ Suggested repository topics: `omarchy`, `omarchy-plugin`, `sports`, `cricket`, `
 
 ## Removal
 
-Disable/remove the plugin with `omarchy plugin remove io.github.tcballard.sportsbar`. The helper is separately owned: remove it with `cargo uninstall sportsbar-feed` if no longer needed. Remove provider environment variables from your session configuration yourself. Match history is session-only; the plugin creates no separate credential or cache files. Omarchy owns the widget settings.
+Disable/remove the plugin with `omarchy plugin remove io.github.tcballard.sportsbar`. The helper is separately owned: remove it with `cargo uninstall sportsbar-feed` if no longer needed. Any obsolete provider environment variables can be removed separately. Match history is session-only; the plugin creates no separate credential or cache files. Omarchy owns the widget settings.
 
 MIT licensed. Data providers retain their own data rights and terms.

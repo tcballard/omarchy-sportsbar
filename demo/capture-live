@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Capture an already-open fictional panel; never alter shell/configuration state.
+set -euo pipefail
+if [[ $# != 2 || $1 != /* || -e $1 ]]; then
+  echo 'Usage: demo/capture-live /absolute/new-preview.png "X,Y WIDTHxHEIGHT"' >&2
+  exit 2
+fi
+for tool in omarchy-shell jq grim timeout mktemp; do
+  command -v "$tool" >/dev/null || { echo "Missing: $tool" >&2; exit 1; }
+done
+[[ $2 =~ ^-?[0-9]+,-?[0-9]+\ [1-9][0-9]*x[1-9][0-9]*$ ]] || exit 2
+# There is nothing to restore: no plugin, workspace, cursor or shell changes.
+# Temporary capture is removed on failure; an existing output is never replaced.
+capture=$(mktemp "${1}.tmp.XXXXXXXX")
+cleanup() { rm -f -- "$capture"; }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+ready() {
+  timeout 5 omarchy-shell io.github.tcballard.sportsbar status |
+    jq -e '.configured == true and .demo == true and .demoReady == true and .loading == false' >/dev/null
+}
+ready || { echo 'Open SportsBar with Fictional demo enabled and wait for its scores.' >&2; exit 1; }
+timeout 10 grim -t png -g "$2" "$capture"
+ready || { echo 'Demo state changed during capture; discarded.' >&2; exit 1; }
+# Hard-link publication refuses an existing destination, including racing writers.
+ln -- "$capture" "$1"
+echo "$1"
