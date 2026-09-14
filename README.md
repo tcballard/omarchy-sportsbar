@@ -27,25 +27,27 @@ Score changes are described as **score updates**, not inferred touchdowns, tries
 
 | Sport | Adapter | Setup | Polling |
 | --- | --- | --- | --- |
-| NFL | ESPN public website scoreboard | No key | 30 seconds |
-| Football | ESPN public website scoreboard | No key; choose one competition | 30 seconds |
-| Rugby | ESPN public website scoreboard | No key; English Premiership or Six Nations | 30 seconds |
+| NFL | ESPN public CDN scoreboard | No key | 30 seconds |
+| Football | ESPN public CDN scoreboard | No key; choose one competition | 30 seconds |
+| Rugby | ESPN public CDN scoreboard | No key; English Premiership or Six Nations | 30 seconds |
 | Cricket | ESPNcricinfo public live-scores RSS | No key or account | 30 seconds |
 
 Alerts arrive **after the provider updates and the next successful poll**. These are not push feeds or guaranteed instant alerts. All sports default to 30-second polling, measured from request start; one request refreshes all cricket matches in the feed. This deliberately uses the product default rather than the RSS TTL hint. The 14 September live-feed experiment observed two score changes 57–60 seconds earlier than a simulated two-minute schedule; it did not establish wicket-alert or ground-to-desktop latency. Overdue sports are served oldest-first without overlapping requests. Slow requests can extend the effective interval beyond 30 seconds. HTTP errors back off; server Retry-After delays are minimum waits, even when longer than local backoff. Manual refresh and settings changes respect server cooldowns within the running service. Restarting the service resets its in-memory cooldowns.
 
 The ESPNcricinfo public RSS response was retrieved on 14 September 2026 and is covered by a recorded-response test. It supplies team names, scores, wickets when present and a `*` batting-side marker. Overs, authoritative innings IDs, upcoming-match state and result text are not guaranteed. Missing fields stay unknown; a bare runs total is not assumed to mean all out. Cricket wicket alerts require consecutive live snapshots of the same batting score slot with no run reset. These are best-effort score-change detections: compressed innings, omitted markers and missing final-result updates may suppress notifications. The feed's schema and update latency are not contractual. Unsupported title formats report a feed error and retain stale scores rather than inventing data.
 
-NFL and Premier League endpoints were also inspected publicly. ESPN rugby endpoints returned Six Nations results and English Premiership fixtures without credentials. Live rugby update speed is not yet verified. No BBC scraping is used.
+NFL, football and rugby use the public website backend at `cdn.espn.com`, reading `content.sbData.events`. Direct requests on 14 September 2026 returned NFL games, a live Premier League match and upcoming English Premiership rugby fixtures without credentials. These are undocumented website endpoints, not a supported developer API. Observed cache lifetimes were 120, 112 and 240 seconds respectively; a 30-second poll does not guarantee a new score every 30 seconds. Live rugby update speed and connectivity from each user’s machine remain unverified. No cache-busting parameters or automatic host rotation are used. HTTP 401/403 reports `access-denied`; it does not mean an API key is required. No BBC scraping is used.
 
 The initial scope is current scoreboards, not every competition, historic results, standings or a complete searchable team directory. Football fetches one selected competition at a time (default Premier League); teams playing outside it will not appear. Rugby fetches one selected competition: English Premiership by default, or Six Nations, chosen in Alerts & feeds. Teams outside that competition will not appear. Cricket follows exact provider team names. Additional provider adapters can reuse the normalized match contract and alert engine.
 
 Sources checked 14 September 2026:
 
-- [ESPN NFL scoreboard](https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard)
-- [ESPN Premier League scoreboard](https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/scoreboard)
-- [ESPN Premiership scoreboard](https://site.api.espn.com/apis/site/v2/sports/rugby/267979/scoreboard)
+- [ESPN NFL scoreboard](https://cdn.espn.com/core/nfl/scoreboard?xhr=1&limit=50)
+- [ESPN Premier League scoreboard](https://cdn.espn.com/core/soccer/scoreboard?xhr=1&league=eng.1)
+- [ESPN Premiership scoreboard](https://cdn.espn.com/core/rugby/scoreboard?xhr=1&league=267979)
 - [ESPNcricinfo public live-scores RSS](https://static.cricinfo.com/rss/livescores.xml)
+
+The CDN migration checks and remaining live-test limits are recorded in [CDN verification](docs/CDN-VERIFICATION.md).
 
 ## Build and install for testing
 
@@ -56,10 +58,10 @@ Clone the repository and enter its directory:
 ```bash
 git clone https://github.com/tcballard/omarchy-sportsbar.git
 cd omarchy-sportsbar
-git checkout --detach ce6b4daacf6e981c91daa28bb8850a8270e77373
+git checkout --detach d520fccbb3847226afe20ca842c5f0c19bee6757
 ```
 
-This pin contains the audit corrections. Review a new revision before updating; keep the helper and plugin at the same revision.
+This pin contains the audit corrections and ESPN CDN migration. Review a new revision before updating; keep the helper and plugin at the same revision.
 
 Build and install the helper explicitly:
 
@@ -78,7 +80,7 @@ Install the plugin from the same pinned checkout as the helper (Omarchy clones i
 
 ```bash
 omarchy plugin add "$PWD" --yes
-omarchy plugin enable io.github.tcballard.sportsbar --yes
+omarchy plugin enable io.github.tcballard.sportsbar
 ```
 
 The display name is **SportsBar**; the repository is **omarchy-sportsbar**. This development preview uses plugin ID `io.github.tcballard.sportsbar` and helper `sportsbar-feed`. If you manually installed the earlier unpublished OmaSports preview, remove `io.github.tcballard.omasports` and its `omasports-feed` helper before enabling this one. Transfer any favourite settings you want to keep.
