@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.tcballard.sportsbar",
+  "name": "SportsBar",
+  "version": "0.1.0",
+  "author": "Tom Ballard",
+  "license": "MIT",
+  "description": "Follow your teams with live scores and wicket alerts.",
+  "kinds": [
+    "bar-widget",
+    "service"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "service": "Service.qml"
+  },
+  "barWidget": {
+    "displayName": "SportsBar",
+    "description": "Follow your teams with live scores and wicket alerts.",
+    "category": "Other",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "teams": "",
+      "footballLeague": "eng.1",
+      "notifications": true,
+      "fastPaidFeeds": false,
+      "demo": false
+    },
+    "schema": [
+      {
+        "key": "teams",
+        "type": "string",
+        "label": "Teams (sport:exact name; separated)",
+        "defaultValue": ""
+      },
+      {
+        "key": "notifications",
+        "type": "boolean",
+        "label": "Desktop alerts",
+        "defaultValue": true
+      },
+      {
+        "key": "fastPaidFeeds",
+        "type": "boolean",
+        "label": "60-second cricket/rugby polling (needs quota)",
+        "defaultValue": false
+      },
+      {
+        "key": "demo",
+        "type": "boolean",
+        "label": "Fictional demo without network or alerts",
+        "defaultValue": false
+      }
+    ]
+  }
+}
