@@ -56,8 +56,10 @@ Clone the repository and enter its directory:
 ```bash
 git clone https://github.com/tcballard/omarchy-sportsbar.git
 cd omarchy-sportsbar
-git checkout --detach 9da10bea93cb6a01d1d355f73c94f88b06be8182
+git checkout --detach ce6b4daacf6e981c91daa28bb8850a8270e77373
 ```
+
+This pin contains the audit corrections. Review a new revision before updating; keep the helper and plugin at the same revision.
 
 Build and install the helper explicitly:
 
@@ -72,7 +74,7 @@ sportsbar-feed --demo
 sportsbar-feed nfl
 ```
 
-Install the plugin from the same pinned checkout as the helper (keep that checkout for the local plugin):
+Install the plugin from the same pinned checkout as the helper (Omarchy clones it; its origin remains this local checkout):
 
 ```bash
 omarchy plugin add "$PWD" --yes

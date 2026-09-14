@@ -1,38 +1,71 @@
-# Verification — 14 September 2026
+# Verification — audit corrections, 14 September 2026
 
-Development preview, Linux container. No live Omarchy session was available.
+## Source identity
 
-## Passed
+Runtime, tests and demo scripts tested at commit `ce6b4daacf6e981c91daa28bb8850a8270e77373`.
+Its complete Git tree is `0e9b7e74749435578cd5d01574f244b61ad2c3b1`.
+The following documentation-only commit pins README installation to that source
+and records this evidence; it does not change runtime, tests or assets.
 
-- Bundle v0.4.0 candidate validator: valid manifest, entry points and paths; zero warnings. Advisory security output identifies QML process execution for manual review, with no flagged findings. This is not marketplace approval.
-- `./tests/run`: generated manifest validator, 20 JavaScript alert/focus tests, 11 Rust normalization/RSS tests, Rust formatting. JavaScript cases cover initial load, individual and aggregated wickets, new innings, runs-only updates, duplicate snapshots, score/wicket corrections, muted polling, outage recovery, team/sport filtering, final score changes and unknown score values.
-- `cargo clippy --offline --locked -- -D warnings`: passed.
-- `python3 tests/qml_smoke.py --screenshot` with PySide6 6.11.2, offscreen/software: loads all production QML entry/content files against explicit host doubles; tests team selection signals, focus changes preserving live alert state, demo data, no demo alerts, late response invalidation, favourite filtering, last-good retention and stale/offline state. No QML warnings. Renders the actual SportsContent, with simulated host controls. Screenshot inspected for layout/clipping at 480 × 620.
-- All four sports now use public feeds without credentials; its recorded real RSS response passes parsing, including batting-side selection.
-- Direct curl retrieval reached the public RSS through the observed www.espncricinfo.com → www.cricinfo.com → static.cricinfo.com redirect chain. The production Rust helper returned offline in this container; real helper HTTPS and notification delivery remain target-desktop checks.
-- Public ESPN NFL and Premier League JSON endpoints opened successfully through web retrieval. The execution container could not directly reach provider hosts; this is not an end-to-end helper network test.
+Bundle validation scripts match v0.4.0, commit
+`a12e90568b7e8f28ca7ca92400009758da7eb43b`; installed routing/reference updates
+are also present. Structural validity is not security certification or marketplace approval.
 
-## Required on the target desktop
+## Reproduced checks
 
-1. Build/install helper into the shell process's PATH. Run installed `omarchy-version`; record it with platform and date.
-2. Validate and enable the plugin on Omarchy's built-in bar. Confirm own-service resolution and settings persistence across reload.
-3. Open/close panel, keyboard Tab/Enter/Escape, narrow screens, horizontal/vertical bar and multiple monitors; confirm only one poller.
-4. Enable fictional demo and confirm no network/notification delivery. Disable demo before following real matches.
-5. Confirm public feeds load without credentials, rugby competition selection works, and all sports poll at 30-second request-start intervals when the service is idle. Verify backoff on failures.
-6. Observe a real match score change and cricket wicket, checking delivery latency and absence of duplicate alerts. Test DND/session mute and notification failure reporting.
-7. Disconnect/reconnect network and suspend/resume. Confirm stale display, backoff and silent re-baseline rather than catch-up alerts.
-8. Disable/remove plugin and confirm child process cleanup, no polling, and no duplicate service after re-enable.
+Linux container, Rust 1.98.1 and PySide6 6.11.2 (offscreen/software).
+The initial missing tool/dependency prerequisites were restored for this patch.
 
-Production readiness, exact supported installed Omarchy versions and marketplace distribution remain unverified. The preview is suitable for review and controlled testing, not a claim of dependable live match coverage.
+- `./tests/run`: manifest validator, 28 Node tests, 12 Rust tests, formatting;
+  all pass. Official Omarchy validation is skipped when its executable is absent.
+- `cargo clippy --offline --locked -- -D warnings`: pass; also added to CI.
+- `python3 tests/qml_smoke.py`: pass, no QML warnings; uses explicit host doubles.
+- Bundle `validate_plugin.py . --json --security`: valid, no structural warnings
+  or security findings; process/build/CI capabilities still require manual review.
+- Bundle `demo_preflight.py .`: pass with fixture-only warning. The portable
+  runner does not claim desktop capture. Separate `demo/capture-live` is prepared.
+- `bash -n demo/run demo/capture-live tests/run` and `git diff --check`: pass.
+- Live-capture regression uses inert shell/renderer doubles to verify refusal
+  outside demo mode, output protection and temporary-file cleanup. No actual
+  desktop is captured by this test.
 
-- Prior GitHub CI failed on missing `libEGL.so.1`. Workflow now installs libegl1/libopengl0 before the Qt smoke test.
+The scheduler regression uses the production methods and a controlled clock:
+25 successful 12-second requests rotate across all four sports, including cricket.
+Other regressions cover no overlap, disabled feeds, exact deadlines, two-hour
+server waits, invalid/short waits, settings changes, late results and notification
+spacing. Rust tests cover delay-seconds, a future standard HTTP date rounded up,
+past dates, invalid headers and propagation from 429/503 responses.
 
-## Cricket refresh default (14 September 2026)
+Reviewed capabilities: README builds a manually selected immutable source;
+Service.qml runs only the bounded feed helper and notify-send via argv;
+workflow sudo/package installation runs in CI, not inside the plugin.
 
-A live experiment sampled Cricinfo match 1552320 (England Under-19s v Pakistan Under-19s) 21 times at 30-second request-start intervals from 09:33:52.768 to 09:44:01.486 UTC, including response time (608.7 seconds). All requests returned HTTP 200. England totals progressed from no score to 10, 15 and 16. A simulated two-minute schedule using every fourth sample detected 15 and 16 respectively 60.3 and 57.2 seconds later; 10 was detected at the same time. This is phase-dependent detection savings, not real-world delivery latency. No wicket change was observed and no independent current score was available. RSS TTL was 2 minutes and HTTP Cache-Control max-age was 30 seconds; publication timestamps were roughly six minutes behind responses, which does not establish score delay.
+## Failures and limits
 
-Cricket now defaults to 30 seconds. Successful responses retain the deadline set at request start; failures still back off. Live Omarchy notifications remain unverified.
+A rebuilt helper's real cricket request returned `offline` / `Feed unreachable
+or timed out` in this container. No end-to-end provider success or latency claim
+is made for this patch. TLS protections were not weakened. The controlled tests
+verify error handling, not the external provider's current availability.
 
-## All-sports polling and ESPN rugby
+No Omarchy executable, compositor or real notification service is available here.
+Official validation, exact host imports, discovery/enablement, saved settings,
+bar orientations, monitors, focus, theme switching, live capture, real-process
+cleanup, install/update/removal and notification delivery remain unrun. Follow
+[desktop acceptance](DESKTOP-TEST.md). The live capture script is prepared, not
+proven on Omarchy. Cooldowns are session memory and reset when the service exits.
 
-Default polling is 30 seconds for every sport. ESPN Six Nations (180659) returned completed match scores and Premiership (267979) returned upcoming fixtures in direct unauthenticated requests on 14 September. Rugby normalization uses the shared ESPN schema; live rugby notification latency remains untested.
+## Historical evidence, not rerun
+
+The pre-correction main commit `9da10bea93cb6a01d1d355f73c94f88b06be8182`
+had successful CI, but its tests missed polling starvation. It is not evidence
+for these corrections; consult this PR's CI for the delivered head.
+
+The earlier 14 September cricket experiment observed 21 successful RSS samples
+and two score changes detected about 57–60 seconds earlier than simulated
+two-minute polling. No wicket was observed, and ground-to-desktop latency was
+not established. Earlier direct endpoint checks found public ESPN rugby results
+and fixtures. Those observations are not repeated live-provider acceptance.
+
+Existing root preview and docs/portable-preview.png are historical captures of
+production content with simulated host controls and fictional fixtures. They
+remain labelled portable previews and are not live desktop evidence.
