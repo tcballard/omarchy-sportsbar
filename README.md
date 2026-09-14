@@ -7,7 +7,7 @@
 
 Follow your teams from the Omarchy bar. See scores and get desktop notifications when a score changes or a wicket falls, without keeping a sports website open.
 
-**First development preview.** Portable tests pass; live Omarchy integration and live rugby update timing are not yet verified. This is not a published marketplace release.
+**v0.1.0 publication candidate.** Portable tests pass, and the maintainer reports that the fictional demo displays correctly on an XPS after repositioning the widget. Live feeds and notification delivery remain unverified. This is not a published marketplace release.
 
 ![Portable Qt preview with fictional scores and simulated host controls](docs/portable-preview.png)
 
@@ -78,12 +78,21 @@ Install the plugin from the same pinned checkout as the helper (Omarchy clones i
 
 ```bash
 omarchy plugin add "$PWD" --yes
-omarchy plugin enable io.github.tcballard.sportsbar --yes
+omarchy plugin enable io.github.tcballard.sportsbar
 ```
 
 The display name is **SportsBar**; the repository is **omarchy-sportsbar**. This development preview uses plugin ID `io.github.tcballard.sportsbar` and helper `sportsbar-feed`. If you manually installed the earlier unpublished OmaSports preview, remove `io.github.tcballard.omasports` and its `omasports-feed` helper before enabling this one. Transfer any favourite settings you want to keep.
 
 Click **Sports → Teams**, select a sport and follow your teams. In **Alerts & feeds**, choose football/rugby competitions and alert categories. For a safe visual trial, enable **Fictional demo** there first. This does not set your favourites to the fictional teams.
+
+Move an enabled widget to the first position on the left:
+
+```bash
+omarchy plugin enable io.github.tcballard.sportsbar --section left --index 0
+```
+
+Use `left`, `center` or `right`; `--index` selects its position within the section.
+If widgets still overlap, include a screenshot when reporting it.
 
 Left click opens the panel; right click mutes/unmutes notifications for the session. Tab/Shift+Tab move between controls; Enter/Space activate buttons; Escape closes the panel.
 
@@ -93,7 +102,7 @@ Left click opens the panel; right click mutes/unmutes notifications for the sess
 
 ## Compatibility
 
-Targets the installed Omarchy Quattro shell's hosted `service` + `bar-widget` contract. Installed system versions are reported by `omarchy-version`; ISO and Quickshell engine versions are separate. **No installed Omarchy version has been tested yet**, so no compatibility-range badge is claimed. An ordinary third-party replacement bar can lack access to the widget's service; use Omarchy's built-in bar for the initial test.
+Targets the installed Omarchy Quattro shell's hosted `service` + `bar-widget` contract. Installed system versions are reported by `omarchy-version`; ISO and Quickshell engine versions are separate. **The maintainer has tested the fictional demo and repositioning on an XPS running Omarchy dev.** The exact shell/plugin revisions for that test have not been captured together, so no verified compatibility range is claimed. An ordinary third-party replacement bar can lack access to the widget's service; use Omarchy's built-in bar for the initial test.
 
 See [demo and desktop acceptance](docs/DESKTOP-TEST.md) for capture and live verification steps.
 
@@ -110,6 +119,29 @@ The Qt test uses explicit doubles for Omarchy/Quickshell host components. It ren
 This project was scaffolded with the local **Build Omarchy Plugins v0.4.0 release candidate**, commit `66d894eca17b0eb863bbae5926a9b122fa5a803d`. The remote `v0.4.0` tag was not available when this build began. Applied bundle skills: design, scaffold, bar-widget, service-ipc, QML patterns and test. No bundle files were modified.
 
 Suggested repository topics: `omarchy`, `omarchy-plugin`, `sports`, `cricket`, `live-scores`.
+
+## Updating a test installation
+
+Keep the plugin and separately built helper at the same reviewed revision. The
+pinned local-clone installation above is deliberately not a moving-branch update
+channel. Do not run a blind pull or remove/re-add it to update: removal can discard
+saved settings. An in-place update and rollback must be verified on a disposable
+Omarchy installation before the first public release. See the
+[publication checklist](docs/PUBLICATION.md) for the remaining gate.
+
+## Support and security reports
+
+Report bugs through [GitHub Issues](https://github.com/tcballard/omarchy-sportsbar/issues).
+Include `omarchy-version`, the full Omarchy source revision, the installed plugin
+revision, the feed status/error and a screenshot for layout problems. Redact
+personal paths and unrelated desktop contents.
+
+For a suspected security vulnerability, open a minimal issue requesting a private
+contact route. Do not publish credentials, personal data or exploitation details.
+
+Third-party crates are pinned in `Cargo.lock`; see [dependency and asset notes](docs/DEPENDENCIES.md).
+[Release notes](docs/RELEASE-NOTES-0.1.0.md) and the
+[marketplace submission draft](docs/MARKETPLACE-DRAFT.md) are prepared for review.
 
 ## Removal
 

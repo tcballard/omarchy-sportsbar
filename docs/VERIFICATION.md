@@ -69,3 +69,19 @@ and fixtures. Those observations are not repeated live-provider acceptance.
 Existing root preview and docs/portable-preview.png are historical captures of
 production content with simulated host controls and fictional fixtures. They
 remain labelled portable previews and are not live desktop evidence.
+
+## Maintainer desktop report — 14 September 2026
+
+After the merged audit corrections, Tom reported that moving SportsBar using
+`--section left --index 0` worked and the fictional demo looked good on his XPS.
+This is user-reported evidence of visible demo UI and placement, not an observed
+live feed or notification. He explicitly noted that demo mode limits the test.
+The session is reported as Omarchy dev; the exact shell and installed plugin
+revisions have not been captured together for this check. Do not infer a tested
+compatibility range or a successful full lifecycle from this report.
+
+The subsequent publication-preparation PR changes documentation only. It fixes
+the unsupported `--yes` flag on enable, documents placement, and prepares release
+notes/submission material. Earlier runtime checks above remain historical evidence
+for the unchanged runtime. Structural and release preflight are repeated on the
+preparation tree; no live test is invented to clear the remaining release gates.
