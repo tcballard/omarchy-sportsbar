@@ -50,7 +50,7 @@ Item {
         Qt.callLater(tick)
     }
     function interval(sport) {
-        if (sport === "cricket") return Math.max(120000, Math.min(86400000, Number((feeds.cricket || {}).pollIntervalSec || 120)*1000))
+        if (sport === "cricket") return 30000
         if (sport === "rugby") return options.fastPaidFeeds === true ? 60000 : 1200000
         return 60000
     }
@@ -91,11 +91,6 @@ Item {
         var success = result.state === "ready" || result.state === "empty"
         if (success) {
             result.updated = Date.now()
-            if (requestSport === "cricket") {
-                var ttl=Number(result.pollIntervalSec)
-                result.pollIntervalSec=isFinite(ttl) ? Math.max(120,Math.min(86400,ttl)) : 120
-                deadlines.cricket=Date.now()+result.pollIntervalSec*1000
-            }
             failures[requestSport] = 0
             var events = Model.ingest(history,result.matches,selected,Date.now(),interval(requestSport)*2+15000,!demo && !muted && options.notifications !== false)
             events = events.filter(function(e) { return options[e.kind + "Alerts"] !== false })

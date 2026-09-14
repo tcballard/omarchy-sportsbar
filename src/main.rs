@@ -188,7 +188,7 @@ fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), (&'static str, 
         let xml =
             std::str::from_utf8(&bytes).map_err(|_| ("failed", "Cricket feed is not UTF-8"))?;
         return cricinfo::parse(xml)
-            .map(|matches| (matches, cricinfo::poll_interval(xml)))
+            .map(|matches| (matches, cricinfo::POLL_INTERVAL_SEC))
             .map_err(|e| ("failed", e));
     }
     let v: Value =

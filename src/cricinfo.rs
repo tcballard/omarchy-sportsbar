@@ -252,20 +252,8 @@ mod tests {
     }
 }
 
-// RSS ttl is expressed in minutes. Never poll more often than two minutes.
-pub fn poll_interval(xml: &str) -> u64 {
-    roxmltree::Document::parse(xml)
-        .ok()
-        .and_then(|d| {
-            d.descendants()
-                .find(|n| n.has_tag_name("ttl"))
-                .and_then(|n| n.text())
-                .and_then(|s| s.trim().parse::<u64>().ok())
-        })
-        .unwrap_or(2)
-        .saturating_mul(60)
-        .clamp(120, 86400)
-}
+// Product default, based on the 14 September live-feed sampling experiment.
+pub const POLL_INTERVAL_SEC: u64 = 30;
 #[cfg(test)]
 mod recorded_feed {
     use super::*;
@@ -280,10 +268,5 @@ mod recorded_feed {
         );
         assert_eq!(matches[0]["innings"][1]["wickets"], 4);
         assert_eq!(matches[1]["state"], "unknown");
-        assert_eq!(poll_interval(xml), 120);
-        assert_eq!(
-            poll_interval("<rss><channel><ttl>10</ttl></channel></rss>"),
-            600
-        );
     }
 }

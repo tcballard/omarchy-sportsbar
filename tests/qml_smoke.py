@@ -62,9 +62,13 @@ Window {{id:w;visible:true;width:480;height:620;color:"#171c1a"
   svc.configure({{demo:false,teams:"cricket:england"}})
   svc.requestGeneration=old;svc.buffer=JSON.stringify({json.dumps(fixtures)});svc.complete(0)
   assertOk(svc.matches.length===0,"late completion leaked")
+  assertOk(svc.interval("cricket")===30000,"cricket defaults to thirty seconds")
+  svc.deadlines.cricket=Date.now()+17000
+  var cricketDeadline=svc.deadlines.cricket
   svc.requestGeneration=svc.generation;svc.requestSport="cricket";svc.buffer=JSON.stringify({{state:"ready",matches:[{json.dumps(fixtures['matches'][0])}]}});svc.complete(0)
   assertOk(svc.followed.length===1,"team selector")
   var focusGeneration=svc.generation
+  assertOk(svc.deadlines.cricket===cricketDeadline,"completion preserves request-start deadline")
   svc.configure({{demo:false,teams:"cricket:england",focusedEventId:"demo:cricket",focusedEventLabel:"ENG v AUS"}})
   assertOk(svc.generation===focusGeneration && svc.followed.length===1,"focus reset live alert baseline")
   svc.buffer=JSON.stringify({{state:"offline",matches:[],message:"offline"}});svc.complete(0)

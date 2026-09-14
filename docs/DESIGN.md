@@ -16,4 +16,4 @@
 - Lifecycle: initial snapshot/restart/configuration changes establish a new baseline. Disable destroys the singleton and stops owned processes/timers. No permanent background daemon is installed.
 - Deferred: multiple simultaneous football leagues, complete team catalogue and provider IDs in saved favourites, ball-by-ball scorer detail, provider-account UI, quiet-hour schedules, paid-feed production verification, marketplace submission and package distribution.
 
-- Cricket RSS uses score-slot continuity and batting markers for conservative wicket detection, not authoritative innings identity. Honour RSS TTL with a two-minute minimum. No inferred wickets from bare run totals; missing status is unknown, not scheduled/final.
+- Cricket RSS uses score-slot continuity and batting markers for conservative wicket detection, not authoritative innings identity. Use a 30-second request-start polling interval, with no overlapping requests and exponential error backoff. RSS TTL does not override this product default. No inferred wickets from bare run totals; missing status is unknown, not scheduled/final.
