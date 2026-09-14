@@ -1,3 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-sportsbar-feed --demo
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+case "${1:-}" in
+  "") cat "$root/demo/fixtures/matches.json" ;;
+  --portable) exec python3 "$root/tests/qml_smoke.py" --screenshot ;;
+  *) echo 'Usage: demo/run [--portable]' >&2; exit 2 ;;
+esac

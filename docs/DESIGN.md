@@ -19,3 +19,11 @@
 - Cricket RSS uses score-slot continuity and batting markers for conservative wicket detection, not authoritative innings identity. Use a 30-second request-start polling interval, with no overlapping requests and exponential error backoff. RSS TTL does not override this product default. No inferred wickets from bare run totals; missing status is unknown, not scheduled/final.
 
 All four sports default to 30 seconds, measured from request start. The singleton serializes requests; slow requests can defer another sport. Rugby uses ESPN with one allowlisted competition (English Premiership or Six Nations); old paid-feed options are ignored.
+
+Audit corrections: choose the oldest eligible deadline so slow successful requests
+cannot starve cricket. Preserve server Retry-After cooldowns across configuration
+changes for the service lifetime; use the longer of server delay and exponential
+backoff. The helper parses delay-seconds and RFC 2822/standard HTTP-date values.
+Cooldowns are in memory and reset on service destruction. Notification dispatch
+also respects the running spacing timer. Read-only status IPC exposes demo and
+demoReady for an explicitly invoked, non-mutating live capture.

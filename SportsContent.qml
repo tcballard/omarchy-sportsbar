@@ -143,7 +143,7 @@ FocusScope {
                         Ui.Button {required property var modelData;text:(root.settings[modelData.key]!==false ? "✓ " : "○ ")+modelData.label;focusable:true;onClicked:{var change={};change[modelData.key]=root.settings[modelData.key]===false;root.changeSettings(change)}}
                     }
                     Ui.Button {text:"Rugby: "+(root.settings.rugbyLeague==="180659" ? "Six Nations" : "English Premiership");focusable:true;onClicked:root.changeSettings({rugbyLeague:root.settings.rugbyLeague==="180659" ? "267979" : "180659"})}
-                    Text {width:parent.width;text:"All sports refresh every 30 seconds without an account or API key. Rugby covers the selected competition. Provider delays and error backoff also apply.";wrapMode:Text.Wrap;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall;color:Color.foreground}
+                    Text {width:parent.width;text:"All sports default to 30-second refreshes without an account or API key. Rugby covers the selected competition. Slow responses, provider delays and retry waits can extend this.";wrapMode:Text.Wrap;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall;color:Color.foreground}
                     Text {text:"FOOTBALL COMPETITION";font.family:Style.font.family;font.pixelSize:Style.font.caption;color:Color.accent}
                     Flow {
                         width:parent.width;spacing:Style.space(4)
