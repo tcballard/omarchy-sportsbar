@@ -7,7 +7,7 @@ function follows(match, selected) {
     })
 }
 function score(match) {
-    if (match.sport === 'cricket') return (match.innings || []).map(function(i) { return i.id + ': ' + i.runs + '/' + i.wickets + ' (' + i.overs + ')' }).join(' · ') || 'Yet to bat'
+    if (match.sport === 'cricket') return (match.innings || []).map(function(i) { return i.id + ': ' + i.runs + '/' + (i.wickets === null ? '—' : i.wickets) + (i.overs ? ' (' + i.overs + ')' : '') }).join(' · ') || 'Yet to bat'
     return (match.teams || []).map(function(t) { return t.name + ' ' + (t.score === null ? '—' : t.score) }).join(' · ')
 }
 function tracker() { return { matches: {}, high: {} } }
@@ -22,9 +22,12 @@ function transition(old, match, high) {
             var previous = (old.innings || []).filter(function(x) { return x.id === i.id })[0]
             // A previously unseen innings is a baseline, never a wicket event.
             if (!previous || i.wickets === null || previous.wickets === null) return
+            // RSS has score slots rather than authoritative innings IDs. Require
+            // continuous observation of the same batting slot; resets are silent.
+            if (match.source === 'espncricinfo-rss' && (old.activeInningsId !== i.id || match.activeInningsId !== i.id || i.runs < previous.runs || previous.declared)) return
             var key = match.id + ':' + i.id
             var ceiling = Math.max(previous.wickets, high[key] || 0)
-            if (i.wickets > ceiling && i.wickets <= 10) events.push({kind:'wicket',title:(i.wickets-ceiling === 1 ? 'Wicket!' : (i.wickets-ceiling) + ' wickets since last update'),detail:i.id + ' · ' + i.runs + '/' + i.wickets + ' (' + i.overs + ')'})
+            if (i.wickets > ceiling && i.wickets <= 10) events.push({kind:'wicket',title:(i.wickets-ceiling === 1 ? 'Wicket!' : (i.wickets-ceiling) + ' wickets since last update'),detail:i.id + ' · ' + i.runs + '/' + (i.wickets === null ? '—' : i.wickets) + (i.overs ? ' (' + i.overs + ')' : '')})
         })
     } else {
         ;(match.teams || []).forEach(function(t) {
@@ -77,7 +80,7 @@ function shortTeam(name) { return String(name || '').trim().split(/\s+/)[0].slic
 function fixtureLabel(match) { return (match.teams || []).map(function(t) { return shortTeam(t.name) }).join(' v ') }
 function barScore(match, vertical) {
     if (match.sport === 'cricket' && match.innings.length) {
-        var i = match.innings[match.innings.length-1]
+        var i = match.innings.filter(function(x) { return x.id === match.activeInningsId })[0] || match.innings[match.innings.length-1]
         var batting = String(i.id).replace(/\s+Inning(?:s)?\s+\d+.*$/i, '')
         var figures = (i.runs === null ? '—' : i.runs) + '/' + (i.wickets === null ? '—' : i.wickets)
         return vertical ? figures.replace('/', '\n/') : shortTeam(batting) + ' ' + figures + (i.overs ? ' · ' + i.overs + ' ov' : '')

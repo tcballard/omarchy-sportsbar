@@ -17,6 +17,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: ./tests/run
+      - name: Install Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0
       - run: python3 -m pip install PySide6==6.11.2
       - run: python3 tests/qml_smoke.py
         env:

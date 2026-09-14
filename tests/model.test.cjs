@@ -20,3 +20,7 @@ test('explicit bar focus overrides order and keeps a final result pinned',()=>{c
 test('missing focused event never silently switches matches',()=>assert.equal(M.focusedMatch(fixture,'gone'),null));
 test('cricket bar shows batting side, wickets and overs',()=>assert.equal(M.barScore(game('cricket'),false),'ENG 186/4 · 42.3 ov'));
 test('football bar identifies both teams',()=>assert.equal(M.barScore(game('football'),false),'ARS 2 – LIV 1'));
+function rssGame(){let m=game('cricket');m.source='espncricinfo-rss';m.activeInningsId=m.innings[0].id;return m}
+test('RSS wicket needs continuous batting-slot observation',()=>{let s=M.tracker(),m=rssGame();ingest(s,copy(m));m.innings[0].wickets++;assert.equal(ingest(s,copy(m),2000).length,1);m.activeInningsId='Australia Inning 1';ingest(s,copy(m),3000);m.activeInningsId=m.innings[0].id;m.innings[0].wickets++;assert.equal(ingest(s,m,4000).length,0)});
+test('RSS run reset suppresses false wicket across compressed innings',()=>{let s=M.tracker(),m=rssGame();ingest(s,copy(m));m.innings[0].runs=12;m.innings[0].wickets=5;assert.equal(ingest(s,m,2000).length,0)});
+test('bar shows active batting innings rather than last-listed opposition',()=>{let m=rssGame();m.innings.push({id:'Australia Inning 1',runs:228,wickets:null,overs:''});assert.equal(M.barScore(m,false),'ENG 186/4 · 42.3 ov');assert.ok(!M.score(m).includes('null'))});

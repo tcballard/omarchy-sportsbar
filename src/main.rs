@@ -1,3 +1,4 @@
+mod cricinfo;
 use serde_json::{json, Value};
 use std::{env, io::Read, time::Duration};
 const MAX_BODY: u64 = 2 * 1024 * 1024;
@@ -89,28 +90,6 @@ fn normalize(sport: &str, v: &Value) -> Result<Vec<Value>, &'static str> {
                 out.push(json!({"id":format!("rugby:{}",text(&e["id"])),"sport":sport,"name":format!("{} v {}",text(&teams[0]["name"]),text(&teams[1]["name"])),"state":state,"detail":text(&e["status"]["long"]),"start":text(&e["date"]),"teams":teams,"innings":[]}));
             }
         }
-        "cricket" => {
-            if v["status"] != "success" {
-                return Err("Provider rejected request; check key, plan and quota");
-            }
-            for e in array(&v["data"])? {
-                let teams: Vec<Value> = array(&e["teams"])?
-                    .iter()
-                    .map(|n| team(n, n, &Value::Null))
-                    .collect();
-                let innings:Vec<Value>=e["score"].as_array().unwrap_or(&Vec::new()).iter().map(|s|json!({"id":text(&s["inning"]),"runs":number(&s["r"]),"wickets":number(&s["w"]),"overs":text(&s["o"])})).collect();
-                let state = if e["matchEnded"] == true {
-                    "finished"
-                } else if e["matchStarted"] == true {
-                    "live"
-                } else if e["matchStarted"] == false {
-                    "scheduled"
-                } else {
-                    "unknown"
-                };
-                out.push(json!({"id":format!("cricket:{}",text(&e["id"])),"sport":sport,"name":text(&e["name"]),"state":state,"detail":text(&e["status"]),"start":text(&e["dateTimeGMT"]),"teams":teams,"innings":innings}));
-            }
-        }
         _ => return Err("Unsupported sport"),
     }
     if out.len() > 500 {
@@ -129,11 +108,20 @@ fn normalize(sport: &str, v: &Value) -> Result<Vec<Value>, &'static str> {
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::DateTime::from(std::time::SystemTime::now())
 }
-fn fetch(sport: &str, league: &str) -> Result<Vec<Value>, (&'static str, &'static str)> {
+fn fetch(sport: &str, league: &str) -> Result<(Vec<Value>, u64), (&'static str, &'static str)> {
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(12))
         .connect_timeout(Duration::from_secs(5))
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            if attempt.previous().len() < 3
+                && cricinfo::allowed_url(attempt.url())
+                && attempt.previous().iter().all(cricinfo::allowed_url)
+            {
+                attempt.follow()
+            } else {
+                attempt.stop()
+            }
+        }))
         .user_agent("SportsBar/0.1.0")
         .build()
         .map_err(|_| ("failed", "Could not create HTTPS client"))?;
@@ -144,88 +132,72 @@ fn fetch(sport: &str, league: &str) -> Result<Vec<Value>, (&'static str, &'stati
         ))
     };
     let date = now().format("%Y-%m-%d").to_string();
-    let mut all = Vec::new();
-    // Cricket currentMatches is paginated. Keep a firm cap and report truncation.
-    let pages = if sport == "cricket" { 4 } else { 1 };
-    for page in 0..pages {
-        let request = match sport {
-            "nfl" => {
-                client.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard")
+    let request = match sport {
+        "nfl" => {
+            client.get("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard")
+        }
+        "football" => {
+            if ![
+                "eng.1",
+                "eng.2",
+                "eng.3",
+                "eng.4",
+                "sco.1",
+                "uefa.champions",
+                "uefa.europa",
+                "esp.1",
+                "ger.1",
+                "ita.1",
+                "fra.1",
+                "usa.1",
+                "fifa.world",
+            ]
+            .contains(&league)
+            {
+                return Err(("unsupported", "Football competition is not supported"));
             }
-            "football" => {
-                if ![
-                    "eng.1",
-                    "eng.2",
-                    "eng.3",
-                    "eng.4",
-                    "sco.1",
-                    "uefa.champions",
-                    "uefa.europa",
-                    "esp.1",
-                    "ger.1",
-                    "ita.1",
-                    "fra.1",
-                    "usa.1",
-                    "fifa.world",
-                ]
-                .contains(&league)
-                {
-                    return Err(("unsupported", "Football competition is not supported"));
-                }
-                client.get(format!(
-                    "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
-                ))
-            }
-            "rugby" => client
-                .get("https://v1.rugby.api-sports.io/games")
-                .query(&[("date", date.clone())])
-                .header("x-apisports-key", key("SPORTSBAR_RUGBY_KEY")?),
-            "cricket" => client
-                .get("https://api.cricapi.com/v1/currentMatches")
-                .query(&[
-                    ("apikey", key("SPORTSBAR_CRICKET_KEY")?),
-                    ("offset", (page * 25).to_string()),
-                ]),
-            _ => return Err(("unsupported", "Unsupported sport")),
-        };
-        let response = request
-            .send()
-            .map_err(|_| ("offline", "Feed unreachable or timed out"))?;
-        match response.status().as_u16() {
-            401 | 403 => return Err(("unauthenticated", "Provider rejected API key or plan")),
-            429 => return Err(("rate-limited", "Provider quota reached; polling backed off")),
-            200 => (),
-            _ => return Err(("failed", "Provider returned an HTTP error")),
+            client.get(format!(
+                "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
+            ))
         }
-        let mut bytes = Vec::new();
-        response
-            .take(MAX_BODY + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|_| ("failed", "Could not read feed"))?;
-        if bytes.len() as u64 > MAX_BODY {
-            return Err(("failed", "Feed exceeded response size limit"));
-        }
-        let v: Value =
-            serde_json::from_slice(&bytes).map_err(|_| ("failed", "Feed returned invalid JSON"))?;
-        all.extend(normalize(sport, &v).map_err(|e| ("failed", e))?);
-        if sport != "cricket" {
-            break;
-        }
-        let count = v["info"]["totalRows"]
-            .as_u64()
-            .ok_or(("failed", "Cricket pagination metadata missing"))?;
-        if all.len() as u64 >= count {
-            break;
-        }
-        if page + 1 == pages {
-            return Err((
-                "unsupported",
-                "Cricket feed exceeds 100 matches; narrow-series support is needed",
-            ));
-        }
+        "rugby" => client
+            .get("https://v1.rugby.api-sports.io/games")
+            .query(&[("date", date.clone())])
+            .header("x-apisports-key", key("SPORTSBAR_RUGBY_KEY")?),
+        "cricket" => client.get("https://static.cricinfo.com/rss/livescores.xml"),
+        _ => return Err(("unsupported", "Unsupported sport")),
+    };
+    let response = request
+        .send()
+        .map_err(|_| ("offline", "Feed unreachable or timed out"))?;
+    match response.status().as_u16() {
+        401 | 403 => return Err(("unauthenticated", "Provider rejected API key or plan")),
+        429 => return Err(("rate-limited", "Provider quota reached; polling backed off")),
+        200 => (),
+        _ => return Err(("failed", "Provider returned an HTTP error")),
     }
-    Ok(all)
+    let mut bytes = Vec::new();
+    response
+        .take(MAX_BODY + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ("failed", "Could not read feed"))?;
+    if bytes.len() as u64 > MAX_BODY {
+        return Err(("failed", "Feed exceeded response size limit"));
+    }
+    if sport == "cricket" {
+        let xml =
+            std::str::from_utf8(&bytes).map_err(|_| ("failed", "Cricket feed is not UTF-8"))?;
+        return cricinfo::parse(xml)
+            .map(|matches| (matches, cricinfo::poll_interval(xml)))
+            .map_err(|e| ("failed", e));
+    }
+    let v: Value =
+        serde_json::from_slice(&bytes).map_err(|_| ("failed", "Feed returned invalid JSON"))?;
+    normalize(sport, &v)
+        .map(|matches| (matches, 60))
+        .map_err(|e| ("failed", e))
 }
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.get(1).map(String::as_str) == Some("--demo") {
@@ -235,8 +207,8 @@ fn main() {
     let sport = args.get(1).map(String::as_str).unwrap_or("");
     let league = args.get(2).map(String::as_str).unwrap_or("eng.1");
     let output = match fetch(sport, league) {
-        Ok(matches) => {
-            json!({"sport":sport,"state":if matches.is_empty(){"empty"}else{"ready"},"matches":matches,"updated":now().timestamp_millis()})
+        Ok((matches, poll_interval_sec)) => {
+            json!({"sport":sport,"state":if matches.is_empty(){"empty"}else{"ready"},"matches":matches,"updated":now().timestamp_millis(),"pollIntervalSec":poll_interval_sec})
         }
         Err((state, message)) => {
             json!({"sport":sport,"state":state,"message":message,"matches":[]})
@@ -266,13 +238,6 @@ mod tests {
             &json!({"errors":{"token":"invalid"},"response":[]})
         )
         .is_err());
-    }
-    #[test]
-    fn cricket_innings() {
-        let v = json!({"status":"success","data":[{"id":"c","teams":["England","Australia"],"matchStarted":true,"matchEnded":false,"score":[{"inning":"England Inning 1","r":200,"w":3,"o":45.2},{"inning":"England Inning 2","r":10,"w":0,"o":2}]}]});
-        let m = normalize("cricket", &v).unwrap();
-        assert_eq!(m[0]["innings"][0]["wickets"], 3);
-        assert_ne!(m[0]["innings"][0]["id"], m[0]["innings"][1]["id"]);
     }
     #[test]
     fn input_safety() {

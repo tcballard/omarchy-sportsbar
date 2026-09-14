@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+<channel>
+<title>Cricinfo Live Scores</title>
+<ttl>2</ttl>
+<link>http://www.cricinfo.com</link>
+<description>Latest scores from Cricinfo</description>
+<copyright>(c)Cricinfo</copyright>
+<language>en-gb</language>
+<pubDate>Mon, 14 Sep 2026 08:19:02 +0000</pubDate>
+<item>
+<title>Malaysia 144/6  v United Arab Emirates 150/4 *</title>
+<link>http://www.cricinfo.com/ci/engine/match/1552895.html?CMP=OTC-RSS </link>
+<description>Malaysia 144/6  v United Arab Emirates 150/4 *</description>
+ <guid>http://www.cricinfo.com/ci/engine/match/1552895.html</guid> </item>
+<item>
+<title>England Under-19s v Pakistan Under-19s</title>
+<link>http://www.cricinfo.com/ci/engine/match/1552320.html?CMP=OTC-RSS </link>
+<description>England Under-19s v Pakistan Under-19s</description>
+ <guid>http://www.cricinfo.com/ci/engine/match/1552320.html</guid> </item>
+</channel>
+</rss>

@@ -43,7 +43,7 @@
       {
         "key": "fastPaidFeeds",
         "type": "boolean",
-        "label": "60-second cricket/rugby polling (needs quota)",
+        "label": "60-second rugby polling (needs quota)",
         "defaultValue": false
       },
       {

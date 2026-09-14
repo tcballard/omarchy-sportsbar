@@ -142,8 +142,8 @@ FocusScope {
                         model:[{key:"notifications",label:"Desktop notifications"},{key:"wicketAlerts",label:"Wickets in followed cricket matches"},{key:"scoreAlerts",label:"Score changes in followed matches"},{key:"startAlerts",label:"Match started"},{key:"resultAlerts",label:"Match finished"},{key:"nfl",label:"NFL feed"},{key:"football",label:"Football feed"},{key:"rugby",label:"Rugby feed"},{key:"cricket",label:"Cricket feed"}]
                         Ui.Button {required property var modelData;text:(root.settings[modelData.key]!==false ? "✓ " : "○ ")+modelData.label;focusable:true;onClicked:{var change={};change[modelData.key]=root.settings[modelData.key]===false;root.changeSettings(change)}}
                     }
-                    Ui.Button {text:(root.settings.fastPaidFeeds===true ? "✓ " : "○ ")+"Fast cricket/rugby polling (60 seconds)";focusable:true;onClicked:root.changeSettings({fastPaidFeeds:root.settings.fastPaidFeeds!==true})}
-                    Text {width:parent.width;text:"Cricket and rugby need your own API keys. Standard polling is every 20 minutes; fast polling needs sufficient paid quota. Cricket may use up to four requests per refresh. Feed delays also apply.";wrapMode:Text.Wrap;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall;color:Color.foreground}
+                    Ui.Button {text:(root.settings.fastPaidFeeds===true ? "✓ " : "○ ")+"Fast rugby polling (60 seconds)";focusable:true;onClicked:root.changeSettings({fastPaidFeeds:root.settings.fastPaidFeeds!==true})}
+                    Text {width:parent.width;text:"Cricket uses ESPNcricinfo: no account or API key, refreshed every two minutes (or the feed’s longer interval). Rugby still uses an optional keyed provider, every 20 minutes or 60 seconds with sufficient quota. Feed delays also apply.";wrapMode:Text.Wrap;font.family:Style.font.family;font.pixelSize:Style.font.bodySmall;color:Color.foreground}
                     Text {text:"FOOTBALL COMPETITION";font.family:Style.font.family;font.pixelSize:Style.font.caption;color:Color.accent}
                     Flow {
                         width:parent.width;spacing:Style.space(4)
